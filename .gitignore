@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env*.local
+*.log
+.vercel
+__pycache__/
+*.pyc
+.venv/
+torbot_venv/
+pryingdeep/vendor/

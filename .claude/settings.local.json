@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(python playwright-instagram-scraper.py:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_run_code",
+      "mcp__context7__resolve-library-id",
+      "Bash(python playwright-instagram-scraper-fast.py:*)",
+      "Bash(python -u playwright-instagram-scraper.py:*)",
+      "mcp__playwright__browser_tabs",
+      "Bash(git clone:*)",
+      "Bash(docker --version:*)",
+      "Bash(vercel --version:*)",
+      "Bash(git init:*)",
+      "Bash(gh auth status:*)",
+      "Bash(curl:*)",
+      "Bash(npx create-next-app@latest web --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(npm run build:*)",
+      "Bash(vercel --yes:*)",
+      "Bash(vercel:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
