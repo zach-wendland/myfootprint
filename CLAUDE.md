@@ -17,7 +17,11 @@ MyFootprint is a personal security OSINT toolkit for credential checking and dar
 ## Tools Included
 
 ### 1. Web UI (`web/`)
-Next.js breach checker using LeakCheck v2 API (paid tier) for full password data.
+Next.js multi-source OSINT lookup with support for:
+- **Email lookup**: Breach checking via LeakCheck + social profile discovery
+- **Username lookup**: Social media presence across major platforms + GitHub API
+- **Phone lookup**: Validation, carrier detection, line type via phonenumbers library
+- **Name + State lookup**: Legal records via CourtListener + manual search links
 
 ```bash
 cd web
@@ -27,10 +31,45 @@ npm run build        # Production build
 npm run lint         # ESLint check
 ```
 
-Environment: Set `LEAKCHECK_API_KEY` in `.env.local`.
+Environment variables (`.env.local`):
+- `LEAKCHECK_API_KEY` - Required for breach checking
+- `NUMVERIFY_API_KEY` - Optional for enhanced phone lookup
+- `VERIPHONE_API_KEY` - Optional for phone carrier data
+- `PDL_API_KEY` - Optional for People Data Labs name search
 
-### 2. Breach Checker CLI (`breach_checker.py`)
-Local credential checker using LeakCheck API.
+### 2. People Search CLI (`people_search.py`)
+Multi-source OSINT lookup for emails, usernames, phones, and names.
+
+```bash
+pip install -r requirements.txt
+
+# Email lookup (breach + social)
+python people_search.py user@example.com -t email
+
+# Username lookup (social profiles)
+python people_search.py johndoe -t username --deep
+
+# Phone lookup (validation + carrier)
+python people_search.py "+1 415 555 1234" -t phone
+
+# Name + state lookup (legal records)
+python people_search.py "John Doe" -t name --state CA
+
+# Auto-detect query type
+python people_search.py user@example.com
+
+# Output as JSON
+python people_search.py johndoe -t username --json
+```
+
+Data sources:
+- **Email**: LeakCheck API, social profile extraction
+- **Username**: GitHub API, quick social check (Twitter, Instagram, etc.)
+- **Phone**: phonenumbers library (free), Numverify, Veriphone APIs
+- **Name**: CourtListener (free), People Data Labs (optional)
+
+### 3. Breach Checker CLI (`breach_checker.py`)
+Simple credential checker using LeakCheck API (legacy, use people_search.py instead).
 
 ```bash
 pip install requests
@@ -38,7 +77,7 @@ python breach_checker.py -i                    # Interactive mode
 python breach_checker.py your@email.com        # Single check
 ```
 
-### 3. TorBot (`TorBot/`)
+### 4. TorBot (`TorBot/`)
 OWASP dark web crawler for .onion sites.
 
 ```bash
@@ -52,7 +91,7 @@ pip install -e .
 
 Options: `--depth N`, `--save json|tree`, `--visualize tree|table`, `-i` for site info
 
-### 4. PryingDeep (`pryingdeep/`)
+### 5. PryingDeep (`pryingdeep/`)
 Go-based deep web intelligence gatherer. Requires PostgreSQL or Docker.
 
 ```bash
@@ -62,7 +101,7 @@ pryingdeep crawl -u http://example.onion
 pryingdeep export -f json
 ```
 
-### 5. Kali MCP Server (Global)
+### 6. Kali MCP Server (Global)
 Configured globally in `~/.claude/settings.json`. Requires Docker.
 
 ```bash
@@ -92,12 +131,14 @@ docker build -t kali-mcp-server C:\Users\lyyud\PROJECTS\kali-mcp
 
 ```
 MYFOOTPRINT/
-├── web/                 # Next.js breach checker
-│   ├── src/app/page.tsx       # Frontend UI
-│   └── src/app/api/check/     # LeakCheck v2 API route
-├── breach_checker.py    # LeakCheck API CLI
-├── TorBot/              # OWASP .onion crawler (Python)
-├── pryingdeep/          # Deep web OSINT (Go)
+├── web/                       # Next.js OSINT dashboard
+│   ├── src/app/page.tsx       # Multi-source search UI
+│   ├── src/app/api/check/     # LeakCheck v2 API route
+│   └── src/app/api/search/    # Unified OSINT search API
+├── people_search.py           # Multi-source OSINT CLI
+├── breach_checker.py          # LeakCheck API CLI (legacy)
+├── TorBot/                    # OWASP .onion crawler (Python)
+├── pryingdeep/                # Deep web OSINT (Go)
 └── requirements.txt
 ```
 
