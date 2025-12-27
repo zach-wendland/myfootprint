@@ -8,149 +8,92 @@ MyFootprint is a personal security OSINT toolkit for credential checking and dar
 
 ## Tech Stack
 
-- Next.js 16 + React 19 + TypeScript (web UI)
-- Python 3 (breach checker CLI)
+- Next.js 16.1 + React 19.2 + TypeScript (web UI)
+- Python 3 (OSINT CLI tools)
 - Go (PryingDeep crawler)
-- Node.js (Kali MCP server)
-- Docker (containerized tools)
+- Docker (containerized Kali tools)
 
-## Tools Included
-
-### 1. Web UI (`web/`)
-Next.js multi-source OSINT lookup with support for:
-- **Email lookup**: Breach checking via LeakCheck + social profile discovery
-- **Username lookup**: Social media presence across major platforms + GitHub API
-- **Phone lookup**: Validation, carrier detection, line type via phonenumbers library
-- **Name + State lookup**: Legal records via CourtListener + manual search links
+## Quick Start
 
 ```bash
-cd web
-npm install
-npm run dev          # Local dev server on :3000
-npm run build        # Production build
-npm run lint         # ESLint check
-```
+# Web UI
+cd web && npm install && npm run dev
 
-Environment variables (`.env.local`):
-- `LEAKCHECK_API_KEY` - Required for breach checking
-- `NUMVERIFY_API_KEY` - Optional for enhanced phone lookup
-- `VERIPHONE_API_KEY` - Optional for phone carrier data
-- `PDL_API_KEY` - Optional for People Data Labs name search
-
-### 2. People Search CLI (`people_search.py`)
-Multi-source OSINT lookup for emails, usernames, phones, and names.
-
-```bash
+# Python CLI
 pip install -r requirements.txt
-
-# Email lookup (breach + social)
-python people_search.py user@example.com -t email
-
-# Username lookup (social profiles)
-python people_search.py johndoe -t username --deep
-
-# Phone lookup (validation + carrier)
-python people_search.py "+1 415 555 1234" -t phone
-
-# Name + state lookup (legal records)
-python people_search.py "John Doe" -t name --state CA
-
-# Auto-detect query type
 python people_search.py user@example.com
-
-# Output as JSON
-python people_search.py johndoe -t username --json
-```
-
-Data sources:
-- **Email**: LeakCheck API, social profile extraction
-- **Username**: GitHub API, quick social check (Twitter, Instagram, etc.)
-- **Phone**: phonenumbers library (free), Numverify, Veriphone APIs
-- **Name**: CourtListener (free), People Data Labs (optional)
-
-### 3. Breach Checker CLI (`breach_checker.py`)
-Simple credential checker using LeakCheck API (legacy, use people_search.py instead).
-
-```bash
-pip install requests
-python breach_checker.py -i                    # Interactive mode
-python breach_checker.py your@email.com        # Single check
-```
-
-### 4. TorBot (`TorBot/`)
-OWASP dark web crawler for .onion sites.
-
-```bash
-cd TorBot
-python -m venv torbot_venv
-source torbot_venv/bin/activate  # or .\torbot_venv\Scripts\activate on Windows
-pip install -r requirements.txt
-pip install -e .
-./main.py -u http://example.onion --depth 2 --save json
-```
-
-Options: `--depth N`, `--save json|tree`, `--visualize tree|table`, `-i` for site info
-
-### 5. PryingDeep (`pryingdeep/`)
-Go-based deep web intelligence gatherer. Requires PostgreSQL or Docker.
-
-```bash
-go install -v github.com/iudicium/pryingdeep/cmd/pryingdeep@latest
-pryingdeep install
-pryingdeep crawl -u http://example.onion
-pryingdeep export -f json
-```
-
-### 6. Kali MCP Server (Global)
-Configured globally in `~/.claude/settings.json`. Requires Docker.
-
-```bash
-cd C:\Users\lyyud\PROJECTS\kali-mcp
-docker build -t kali-mcp-server .
-```
-
-Tools available: nmap, whois, dig, nikto, sqlmap, hydra, metasploit search, ssl scan, subdomain enum
-
-## Setup Requirements
-
-```bash
-# Core
-pip install requests
-
-# TorBot
-pip install -r TorBot/requirements.txt
-
-# PryingDeep
-go install github.com/iudicium/pryingdeep/cmd/pryingdeep@latest
-
-# Kali MCP (Docker required)
-docker build -t kali-mcp-server C:\Users\lyyud\PROJECTS\kali-mcp
 ```
 
 ## Architecture
 
+**Cross-language integration**: The web UI spawns Python scripts via `child_process.spawn()`. See `web/src/app/api/search/route.ts:46` for the pattern.
+
 ```
-MYFOOTPRINT/
-├── web/                       # Next.js OSINT dashboard
-│   ├── src/app/page.tsx       # Multi-source search UI
-│   ├── src/app/api/check/     # LeakCheck v2 API route
-│   └── src/app/api/search/    # Unified OSINT search API
-├── people_search.py           # Multi-source OSINT CLI
-├── breach_checker.py          # LeakCheck API CLI (legacy)
-├── TorBot/                    # OWASP .onion crawler (Python)
-├── pryingdeep/                # Deep web OSINT (Go)
-└── requirements.txt
+web/src/app/
+├── page.tsx              # Tabbed search UI (email/username/phone/name)
+├── api/check/route.ts    # LeakCheck v2 direct API
+└── api/search/route.ts   # Spawns people_search.py, returns JSON
+
+people_search.py          # Multi-source OSINT module
+├── PhoneLookup           # phonenumbers lib + Numverify/Veriphone APIs
+├── UsernameLookup        # GitHub API + quick social check + Sherlock/Maigret
+├── NameLookup            # CourtListener + People Data Labs + manual links
+└── MyFootprintOSINT      # Unified interface with risk scoring
 ```
 
-External:
-- `C:\Users\lyyud\PROJECTS\kali-mcp` - Kali Linux MCP server (Docker)
+## Commands
 
-## GitHub
+### Web UI (`web/`)
+```bash
+npm run dev          # Dev server on :3000
+npm run build        # Production build
+npm run lint         # ESLint
+```
 
-- **Repo**: https://github.com/zach-wendland/myfootprint
+### People Search CLI
+```bash
+# Auto-detects query type
+python people_search.py user@example.com
+python people_search.py johndoe -t username --deep
+python people_search.py "+1 415 555 1234" -t phone
+python people_search.py "John Doe" -t name --state CA
+python people_search.py johndoe --json   # JSON output
+```
+
+### Dark Web Tools
+```bash
+# TorBot (requires Tor on 127.0.0.1:9050)
+cd TorBot && pip install -r requirements.txt && pip install -e .
+./main.py -u http://example.onion --depth 2 --save json
+
+# PryingDeep (requires PostgreSQL)
+go install github.com/iudicium/pryingdeep/cmd/pryingdeep@latest
+pryingdeep install && pryingdeep crawl -u http://example.onion
+```
+
+## Environment Variables
+
+Set in `web/.env.local`:
+- `LEAKCHECK_API_KEY` - Required for breach checking
+- `NUMVERIFY_API_KEY` - Optional, enhanced phone lookup (100 req/month free)
+- `VERIPHONE_API_KEY` - Optional, phone carrier data (1000 req/month free)
+- `PDL_API_KEY` - Optional, People Data Labs name search (paid)
+
+## Data Sources
+
+| Lookup Type | Free Sources | API Sources |
+|-------------|--------------|-------------|
+| Email | Social profile extraction | LeakCheck |
+| Username | GitHub API, HTTP social checks | Sherlock, Maigret |
+| Phone | phonenumbers library | Numverify, Veriphone |
+| Name | CourtListener (5000 req/day) | People Data Labs |
 
 ## Constraints
 
-- TorBot/PryingDeep require Tor running (SOCKS5 proxy on 127.0.0.1:9050)
-- Kali MCP requires Docker with privileged mode
+- TorBot/PryingDeep require Tor SOCKS5 proxy on `127.0.0.1:9050`
 - LeakCheck API has rate limits on free tier
+- Kali MCP server requires Docker with privileged mode
+
+## GitHub
+
+https://github.com/zach-wendland/myfootprint
