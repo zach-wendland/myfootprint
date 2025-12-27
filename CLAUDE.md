@@ -8,14 +8,28 @@ MyFootprint is a personal security OSINT toolkit for credential checking and dar
 
 ## Tech Stack
 
-- Python 3 (breach checker)
+- Next.js 16 + React 19 + TypeScript (web UI)
+- Python 3 (breach checker CLI)
 - Go (PryingDeep crawler)
 - Node.js (Kali MCP server)
 - Docker (containerized tools)
 
 ## Tools Included
 
-### 1. Breach Checker (`breach_checker.py`)
+### 1. Web UI (`web/`)
+Next.js breach checker using LeakCheck v2 API (paid tier) for full password data.
+
+```bash
+cd web
+npm install
+npm run dev          # Local dev server on :3000
+npm run build        # Production build
+npm run lint         # ESLint check
+```
+
+Environment: Set `LEAKCHECK_API_KEY` in `.env.local`.
+
+### 2. Breach Checker CLI (`breach_checker.py`)
 Local credential checker using LeakCheck API.
 
 ```bash
@@ -24,7 +38,7 @@ python breach_checker.py -i                    # Interactive mode
 python breach_checker.py your@email.com        # Single check
 ```
 
-### 2. TorBot (`TorBot/`)
+### 3. TorBot (`TorBot/`)
 OWASP dark web crawler for .onion sites.
 
 ```bash
@@ -38,7 +52,7 @@ pip install -e .
 
 Options: `--depth N`, `--save json|tree`, `--visualize tree|table`, `-i` for site info
 
-### 3. PryingDeep (`pryingdeep/`)
+### 4. PryingDeep (`pryingdeep/`)
 Go-based deep web intelligence gatherer. Requires PostgreSQL or Docker.
 
 ```bash
@@ -48,7 +62,7 @@ pryingdeep crawl -u http://example.onion
 pryingdeep export -f json
 ```
 
-### 4. Kali MCP Server (Global)
+### 5. Kali MCP Server (Global)
 Configured globally in `~/.claude/settings.json`. Requires Docker.
 
 ```bash
@@ -78,7 +92,10 @@ docker build -t kali-mcp-server C:\Users\lyyud\PROJECTS\kali-mcp
 
 ```
 MYFOOTPRINT/
-├── breach_checker.py    # LeakCheck API credential checker
+├── web/                 # Next.js breach checker
+│   ├── src/app/page.tsx       # Frontend UI
+│   └── src/app/api/check/     # LeakCheck v2 API route
+├── breach_checker.py    # LeakCheck API CLI
 ├── TorBot/              # OWASP .onion crawler (Python)
 ├── pryingdeep/          # Deep web OSINT (Go)
 └── requirements.txt
@@ -86,6 +103,10 @@ MYFOOTPRINT/
 
 External:
 - `C:\Users\lyyud\PROJECTS\kali-mcp` - Kali Linux MCP server (Docker)
+
+## GitHub
+
+- **Repo**: https://github.com/zach-wendland/myfootprint
 
 ## Constraints
 
