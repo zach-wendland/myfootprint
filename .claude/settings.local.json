@@ -36,7 +36,9 @@
       "Bash(cat:*)",
       "Bash(npm install:*)",
       "Bash(netlify deploy:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(netlify:*)",
+      "mcp__playwright__browser_take_screenshot"
     ]
   }
 }

@@ -20,3 +20,6 @@ phoneinfoga/
 social_mapper/
 spiderfoot/
 toutatis/
+
+# Local Netlify folder
+.netlify
