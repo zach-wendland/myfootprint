@@ -9,4 +9,14 @@ __pycache__/
 torbot_venv/
 pryingdeep/vendor/
 
-.vercel
+# Cloned OSINT tools (keep locally, not in repo)
+CompreFace/
+EagleEye/
+blackbird/
+deepface/
+h8mail/
+insightface/
+phoneinfoga/
+social_mapper/
+spiderfoot/
+toutatis/

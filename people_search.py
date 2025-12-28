@@ -9,9 +9,10 @@ import re
 import json
 import asyncio
 import subprocess
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 import phonenumbers
@@ -399,35 +400,164 @@ class UsernameLookup:
     def quick_social_check(self, username: str) -> SearchResult:
         """Quick check of major social platforms via HTTP"""
         platforms = {
+            # Major social media
             'twitter': f'https://twitter.com/{username}',
             'instagram': f'https://instagram.com/{username}',
-            'github': f'https://github.com/{username}',
-            'reddit': f'https://reddit.com/user/{username}',
-            'linkedin': f'https://linkedin.com/in/{username}',
+            'facebook': f'https://facebook.com/{username}',
             'tiktok': f'https://tiktok.com/@{username}',
             'youtube': f'https://youtube.com/@{username}',
-            'facebook': f'https://facebook.com/{username}',
+            'snapchat': f'https://snapchat.com/add/{username}',
+            'pinterest': f'https://pinterest.com/{username}',
+            'tumblr': f'https://{username}.tumblr.com',
+            'threads': f'https://threads.net/@{username}',
+            # Professional
+            'linkedin': f'https://linkedin.com/in/{username}',
+            'github': f'https://github.com/{username}',
+            'gitlab': f'https://gitlab.com/{username}',
+            'bitbucket': f'https://bitbucket.org/{username}',
+            'stackoverflow': f'https://stackoverflow.com/users/{username}',
+            'medium': f'https://medium.com/@{username}',
+            'dev.to': f'https://dev.to/{username}',
+            'behance': f'https://behance.net/{username}',
+            'dribbble': f'https://dribbble.com/{username}',
+            # Gaming / streaming
+            'twitch': f'https://twitch.tv/{username}',
+            'kick': f'https://kick.com/{username}',
+            'steam': f'https://steamcommunity.com/id/{username}',
+            'discord': f'https://discord.com/users/{username}',
+            'xbox': f'https://xboxgamertag.com/search/{username}',
+            'playstation': f'https://psnprofiles.com/{username}',
+            # Community / forums
+            'reddit': f'https://reddit.com/user/{username}',
+            'quora': f'https://quora.com/profile/{username}',
+            'hackernews': f'https://news.ycombinator.com/user?id={username}',
+            # Music
+            'spotify': f'https://open.spotify.com/user/{username}',
+            'soundcloud': f'https://soundcloud.com/{username}',
+            'bandcamp': f'https://{username}.bandcamp.com',
+            # Payments / creator
+            'patreon': f'https://patreon.com/{username}',
+            'ko-fi': f'https://ko-fi.com/{username}',
+            'buymeacoffee': f'https://buymeacoffee.com/{username}',
+            'cashapp': f'https://cash.app/${username}',
+            'venmo': f'https://venmo.com/{username}',
+            # Dating profiles
+            'tinder': f'https://tinder.com/@{username}',
+            'bumble': f'https://bumble.com/profile/{username}',
+            'hinge': f'https://hinge.co/{username}',
+            'okcupid': f'https://okcupid.com/profile/{username}',
+            'match': f'https://match.com/profile/{username}',
+            'pof': f'https://pof.com/viewprofile.aspx?profile_id={username}',
+            'badoo': f'https://badoo.com/profile/{username}',
+            'zoosk': f'https://zoosk.com/personals/{username}',
+            'eharmony': f'https://eharmony.com/profile/{username}',
+            'coffee': f'https://coffeemeetsbagel.com/{username}',
+            'grindr': f'https://grindr.com/profile/{username}',
+            'scruff': f'https://scruff.com/profile/{username}',
+            'her': f'https://weareher.com/{username}',
+            'feeld': f'https://feeld.co/{username}',
+            # Sugar / affair / kink dating (employment red flags)
+            'seeking': f'https://seeking.com/member/{username}',
+            'ashleymadison': f'https://ashleymadison.com/profile/{username}',
+            'fetlife': f'https://fetlife.com/{username}',
+            'collarspace': f'https://collarspace.com/view/{username}',
+            'alt': f'https://alt.com/profile/{username}',
+            # Adult content platforms (employment screening)
+            'onlyfans': f'https://onlyfans.com/{username}',
+            'fansly': f'https://fansly.com/{username}',
+            'fanvue': f'https://www.fanvue.com/{username}',
+            'loyalfans': f'https://loyalfans.com/{username}',
+            'admireme': f'https://admireme.vip/{username}',
+            'justforfans': f'https://justfor.fans/{username}',
+            'unlockd': f'https://unlockd.me/{username}',
+            'frisk': f'https://frisk.chat/{username}',
+            'fancentro': f'https://fancentro.com/{username}',
+            'pornhub': f'https://pornhub.com/model/{username}',
+            'xvideos': f'https://xvideos.com/profiles/{username}',
+            'xhamster': f'https://xhamster.com/users/{username}',
+            'xnxx': f'https://xnxx.com/porn-maker/{username}',
+            'redtube': f'https://redtube.com/users/{username}',
+            'spankbang': f'https://spankbang.com/users/{username}',
+            'eporner': f'https://eporner.com/profile/{username}',
+            # Live cam sites
+            'chaturbate': f'https://chaturbate.com/{username}',
+            'myfreecams': f'https://profiles.myfreecams.com/{username}',
+            'stripchat': f'https://stripchat.com/{username}',
+            'cam4': f'https://cam4.com/{username}',
+            'bongacams': f'https://bongacams.com/{username}',
+            'camsoda': f'https://camsoda.com/{username}',
+            'flirt4free': f'https://flirt4free.com/{username}',
+            'livejasmin': f'https://livejasmin.com/{username}',
+            'streamate': f'https://streamate.com/cam/{username}',
+            'imlive': f'https://imlive.com/{username}',
+            # Clip/content sales
+            'manyvids': f'https://manyvids.com/Profile/{username}',
+            'clips4sale': f'https://clips4sale.com/studio/{username}',
+            'iwantclips': f'https://iwantclips.com/store/{username}',
+            'modelhub': f'https://modelhub.com/{username}',
+            # Escort/services (high risk)
+            'tryst': f'https://tryst.link/{username}',
+            'eros': f'https://eros.com/{username}',
+            'skipthegames': f'https://skipthegames.com/{username}',
+            'listcrawler': f'https://listcrawler.com/{username}',
         }
 
-        found_profiles = []
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        for platform, url in platforms.items():
+        # Platforms flagged as adult/NSFW content (employment red flags)
+        adult_platform_names = {
+            # Fan subscription platforms
+            'onlyfans', 'fansly', 'fanvue', 'loyalfans', 'admireme', 'justforfans',
+            'unlockd', 'frisk', 'fancentro',
+            # Porn sites
+            'pornhub', 'xvideos', 'xhamster', 'xnxx', 'redtube', 'spankbang', 'eporner',
+            # Cam sites
+            'chaturbate', 'myfreecams', 'stripchat', 'cam4', 'bongacams',
+            'camsoda', 'flirt4free', 'livejasmin', 'streamate', 'imlive',
+            # Clip sales
+            'manyvids', 'clips4sale', 'iwantclips', 'modelhub',
+            # Escort/services
+            'tryst', 'eros', 'skipthegames', 'listcrawler',
+            # Sugar / affair / kink dating
+            'seeking', 'ashleymadison', 'fetlife', 'collarspace', 'alt', 'feeld'
+        }
+
+        not_found_indicators = [
+            'page not found', 'user not found', 'this account doesn', 'sorry, this page',
+            'profile not found', 'does not exist', '404', 'no user', 'not available',
+            'this profile is not available', 'user does not exist'
+        ]
+
+        def check_platform(platform_url: Tuple[str, str]) -> Optional[dict]:
+            """Check a single platform - runs in thread pool"""
+            platform, url = platform_url
             try:
-                response = requests.get(url, headers=headers, timeout=5, allow_redirects=True)
-                # Basic heuristic: 200 status and no "not found" indicators
+                response = requests.get(url, headers=headers, timeout=2, allow_redirects=False)
                 if response.status_code == 200:
                     content = response.text.lower()
-                    not_found_indicators = ['page not found', 'user not found', 'this account doesn', 'sorry, this page']
-
                     if not any(indicator in content for indicator in not_found_indicators):
-                        found_profiles.append({
+                        return {
                             'platform': platform,
                             'url': url,
-                            'status': 'likely_exists'
-                        })
+                            'status': 'likely_exists',
+                            'adult_content': platform in adult_platform_names
+                        }
             except:
-                continue
+                pass
+            return None
+
+        # Run all checks in parallel (30 threads for speed)
+        found_profiles = []
+        adult_platforms_found = []
+
+        with ThreadPoolExecutor(max_workers=30) as executor:
+            futures = {executor.submit(check_platform, item): item for item in platforms.items()}
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    found_profiles.append(result)
+                    if result['adult_content']:
+                        adult_platforms_found.append(result['platform'])
 
         return SearchResult(
             source="quick_social",
@@ -435,6 +565,8 @@ class UsernameLookup:
             data={
                 'profiles_checked': len(platforms),
                 'profiles_found': len(found_profiles),
+                'adult_profiles_found': len(adult_platforms_found),
+                'adult_platforms': adult_platforms_found,
                 'profiles': found_profiles
             }
         )
@@ -508,12 +640,21 @@ class UsernameLookup:
     def _calculate_username_risk(self, results: List[SearchResult]) -> int:
         """Calculate risk/exposure score based on digital footprint"""
         total_profiles = 0
+        adult_profiles = 0
 
         for r in results:
             if r.found and 'profiles_found' in r.data:
                 total_profiles += r.data['profiles_found']
             elif r.found and r.source == 'github_api':
                 total_profiles += 1
+
+            # Check for adult content - CRITICAL for employment
+            if r.found and 'adult_profiles_found' in r.data:
+                adult_profiles += r.data['adult_profiles_found']
+
+        # Adult content = automatic max risk (employment disqualifier)
+        if adult_profiles > 0:
+            return 100
 
         # More profiles = higher exposure
         if total_profiles >= 10:
@@ -529,6 +670,7 @@ class UsernameLookup:
     def _build_username_summary(self, results: List[SearchResult]) -> Dict[str, Any]:
         """Aggregate username search results"""
         all_profiles = []
+        adult_platforms = []
 
         for r in results:
             if not r.found:
@@ -536,6 +678,10 @@ class UsernameLookup:
 
             if 'profiles' in r.data:
                 all_profiles.extend(r.data['profiles'])
+
+            # Collect adult platforms found
+            if 'adult_platforms' in r.data:
+                adult_platforms.extend(r.data['adult_platforms'])
 
             # Add GitHub data if found
             if r.source == 'github_api':
@@ -556,11 +702,18 @@ class UsernameLookup:
                 seen_urls.add(url)
                 unique_profiles.append(p)
 
+        # Separate adult and regular profiles
+        adult_profile_list = [p for p in unique_profiles if p.get('adult_content')]
+        regular_profiles = [p for p in unique_profiles if not p.get('adult_content')]
+
         return {
             'total_profiles': len(unique_profiles),
+            'adult_profiles_found': len(adult_profile_list),
+            'adult_platforms': list(set(adult_platforms)),
             'platforms': list(set(p.get('platform') or p.get('site', '').lower() for p in unique_profiles)),
-            'profiles': unique_profiles[:20],  # Limit for API response size
-            'sources_checked': len(results)
+            'profiles': unique_profiles[:30],  # Limit for API response size
+            'sources_checked': len(results),
+            'employment_flag': 'CRITICAL - Adult content found' if adult_profile_list else None
         }
 
 
@@ -849,10 +1002,17 @@ class MyFootprintOSINT:
         breach_result = results[0]
         breach_count = breach_result.data.get('breaches_found', 0) if breach_result.found else 0
 
-        risk_score = min(100,
-            (breach_count * 15) +  # Each breach adds 15 points
-            username_results.risk_score // 2  # Half the username exposure score
-        )
+        # Check for adult content - automatic max risk
+        adult_profiles = username_results.summary.get('adult_profiles_found', 0)
+        adult_platforms = username_results.summary.get('adult_platforms', [])
+
+        if adult_profiles > 0:
+            risk_score = 100  # Adult content = max risk
+        else:
+            risk_score = min(100,
+                (breach_count * 15) +  # Each breach adds 15 points
+                username_results.risk_score // 2  # Half the username exposure score
+            )
 
         return PersonProfile(
             query=email,
@@ -862,7 +1022,10 @@ class MyFootprintOSINT:
             summary={
                 'breaches_found': breach_count,
                 'social_profiles': username_results.summary.get('total_profiles', 0),
+                'adult_profiles_found': adult_profiles,
+                'adult_platforms': adult_platforms,
                 'platforms': username_results.summary.get('platforms', []),
+                'employment_flag': 'CRITICAL - Adult content found' if adult_profiles > 0 else None,
                 'recommendation': self._get_recommendation(risk_score, breach_count)
             }
         )

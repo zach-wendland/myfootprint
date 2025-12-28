@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
-type SearchType = 'email' | 'phone' | 'username' | 'name';
+type SearchType = 'email' | 'phone' | 'username' | 'name' | 'photo';
 
 interface SearchResult {
   source: string;
@@ -18,6 +18,30 @@ interface PersonProfile {
   results: SearchResult[];
   risk_score: number;
   summary: Record<string, unknown>;
+  error?: string;
+}
+
+interface PhotoResult {
+  face_analysis?: {
+    faces_detected?: number;
+    primary_face?: {
+      age?: number;
+      gender?: string;
+      gender_confidence?: number;
+      emotion?: string;
+      ethnicity?: string;
+    };
+    error?: string;
+  };
+  reverse_search_links?: Array<{
+    name: string;
+    url: string;
+    description: string;
+    type: string;
+  }>;
+  risk_score?: number;
+  employment_flags?: string[];
+  note?: string;
   error?: string;
 }
 
@@ -138,6 +162,219 @@ function ManualSearchLinks({ links }: { links: Array<{ name: string; url: string
   );
 }
 
+function PhotoUpload({ onUpload, loading }: { onUpload: (file: File) => void; loading: boolean }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    onUpload(file);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div
+        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer
+          ${dragActive ? 'border-red-500 bg-red-500/10' : 'border-zinc-700 hover:border-zinc-500'}
+          ${loading ? 'opacity-50 pointer-events-none' : ''}`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleChange}
+          className="hidden"
+          disabled={loading}
+        />
+
+        {preview ? (
+          <div className="space-y-4">
+            <img
+              src={preview}
+              alt="Preview"
+              className="max-h-64 mx-auto rounded-lg"
+            />
+            <p className="text-sm text-zinc-400">Click or drop to change image</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="text-6xl">📷</div>
+            <p className="text-lg font-medium">
+              Drop a photo here or click to upload
+            </p>
+            <p className="text-sm text-zinc-400">
+              Supports JPG, PNG, WEBP - Face will be analyzed and searched
+            </p>
+          </div>
+        )}
+      </div>
+
+      {loading && (
+        <div className="flex items-center justify-center gap-2 text-zinc-400">
+          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Analyzing photo...
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhotoResults({ result }: { result: PhotoResult }) {
+  const faceAnalysis = result.face_analysis;
+  const primaryFace = faceAnalysis?.primary_face;
+
+  return (
+    <div className="space-y-6">
+      {/* Face Analysis Card */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-xl font-semibold">Face Analysis</h3>
+            <p className="text-sm text-zinc-400">Powered by DeepFace AI</p>
+          </div>
+          <RiskBadge score={result.risk_score || 0} />
+        </div>
+
+        {faceAnalysis?.error ? (
+          <div className="p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg">
+            <p className="text-yellow-400">{faceAnalysis.error}</p>
+            {result.note && <p className="text-sm text-zinc-400 mt-2">{result.note}</p>}
+          </div>
+        ) : faceAnalysis?.faces_detected && faceAnalysis.faces_detected > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-2xl font-bold text-green-400">{faceAnalysis.faces_detected}</p>
+              <p className="text-sm text-zinc-400">Face(s) Detected</p>
+            </div>
+            {primaryFace?.age && (
+              <div>
+                <p className="text-2xl font-bold text-blue-400">~{primaryFace.age}</p>
+                <p className="text-sm text-zinc-400">Estimated Age</p>
+              </div>
+            )}
+            {primaryFace?.gender && (
+              <div>
+                <p className="text-2xl font-bold text-purple-400">{primaryFace.gender}</p>
+                <p className="text-sm text-zinc-400">Gender ({primaryFace.gender_confidence?.toFixed(0)}%)</p>
+              </div>
+            )}
+            {primaryFace?.emotion && (
+              <div>
+                <p className="text-2xl font-bold text-yellow-400 capitalize">{primaryFace.emotion}</p>
+                <p className="text-sm text-zinc-400">Expression</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-zinc-400">No faces detected in the image</p>
+        )}
+
+        {/* Employment Flags */}
+        {result.employment_flags && result.employment_flags.length > 0 && (
+          <div className="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg">
+            <p className="font-bold text-red-400 mb-2">⚠️ EMPLOYMENT FLAGS</p>
+            <ul className="list-disc list-inside text-sm text-red-300">
+              {result.employment_flags.map((flag, i) => (
+                <li key={i}>{flag}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Reverse Search Links */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">🔍 Reverse Image Search</h3>
+        <p className="text-sm text-zinc-400 mb-4">
+          Use these services to find where this face appears online. PimEyes and FaceCheck.ID are best for employment screening.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {result.reverse_search_links?.map((link, i) => (
+            <a
+              key={i}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-start gap-3 p-4 rounded-lg transition-colors ${
+                link.type === 'face_search'
+                  ? 'bg-red-900/20 border border-red-800 hover:bg-red-900/30'
+                  : 'bg-zinc-800 hover:bg-zinc-700'
+              }`}
+            >
+              <span className="text-2xl">
+                {link.type === 'face_search' ? '🎯' : link.type === 'identity_search' ? '🔎' : '🖼️'}
+              </span>
+              <div>
+                <p className="font-medium">{link.name}</p>
+                <p className="text-sm text-zinc-400">{link.description}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-zinc-800/50 rounded-lg p-4">
+        <h4 className="font-medium mb-2">📋 How to Use</h4>
+        <ol className="text-sm text-zinc-400 space-y-1 list-decimal list-inside">
+          <li>Click on <strong className="text-red-400">PimEyes</strong> or <strong className="text-red-400">FaceCheck.ID</strong> for face-specific searches</li>
+          <li>Upload the same photo to search for matches</li>
+          <li>Review results for adult content platforms (OnlyFans, etc.)</li>
+          <li>Use <strong>Yandex</strong> for broader social media discovery</li>
+          <li>Check <strong>SocialCatfish</strong> for dating profile matches</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [searchType, setSearchType] = useState<SearchType>('email');
   const [query, setQuery] = useState('');
@@ -147,6 +384,7 @@ export default function Home() {
   const [deepScan, setDeepScan] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PersonProfile | null>(null);
+  const [photoResult, setPhotoResult] = useState<PhotoResult | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +428,31 @@ export default function Home() {
     }
   };
 
+  const handlePhotoUpload = async (file: File) => {
+    setLoading(true);
+    setPhotoResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const res = await fetch('/api/photo-search', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      setPhotoResult(data);
+    } catch {
+      setPhotoResult({
+        error: 'Photo search failed. Please try again.',
+        reverse_search_links: []
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getPlaceholder = () => {
     switch (searchType) {
       case 'email': return 'Enter email address';
@@ -208,106 +471,118 @@ export default function Home() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">MyFootprint</h1>
           <p className="text-zinc-400">
-            Multi-source OSINT lookup for emails, usernames, phone numbers, and names
+            Multi-source OSINT lookup for emails, usernames, phone numbers, names, and photos
           </p>
         </div>
 
         {/* Search Type Tabs */}
-        <div className="flex gap-1 mb-6 bg-zinc-900 p-1 rounded-lg w-fit">
-          {(['email', 'username', 'phone', 'name'] as const).map((type) => (
+        <div className="flex flex-wrap gap-1 mb-6 bg-zinc-900 p-1 rounded-lg w-fit">
+          {(['email', 'username', 'phone', 'name', 'photo'] as const).map((type) => (
             <button
               key={type}
               onClick={() => {
                 setSearchType(type);
                 setResult(null);
+                setPhotoResult(null);
                 setQuery('');
               }}
               className={`px-4 py-2 rounded-md font-medium capitalize transition-colors ${
                 searchType === type
-                  ? 'bg-red-600 text-white'
+                  ? type === 'photo' ? 'bg-purple-600 text-white' : 'bg-red-600 text-white'
                   : 'text-zinc-400 hover:text-zinc-100'
               }`}
             >
-              {type}
+              {type === 'photo' ? '📷 Photo' : type}
             </button>
           ))}
         </div>
 
-        {/* Search Form */}
-        <form onSubmit={handleSearch} className="space-y-4 mb-8">
-          {searchType === 'name' ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First name"
-                className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100 placeholder-zinc-500"
-                disabled={loading}
-              />
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last name"
-                className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100 placeholder-zinc-500"
-                disabled={loading}
-              />
-              <select
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100"
-                disabled={loading}
-              >
-                <option value="">Select state (optional)</option>
-                {US_STATES.map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <input
-              type={searchType === 'email' ? 'email' : 'text'}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={getPlaceholder()}
-              className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100 placeholder-zinc-500"
-              disabled={loading}
-            />
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={deepScan}
-                onChange={(e) => setDeepScan(e.target.checked)}
-                className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-red-600 focus:ring-red-600"
-                disabled={loading}
-              />
-              Deep scan (slower, checks more sources)
-            </label>
-
-            <button
-              type="submit"
-              disabled={loading || (searchType === 'name' ? !firstName || !lastName : !query)}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-lg font-medium transition-colors min-w-[120px]"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Searching...
-                </span>
-              ) : 'Search'}
-            </button>
+        {/* Search Form or Photo Upload */}
+        {searchType === 'photo' ? (
+          <div className="mb-8">
+            <PhotoUpload onUpload={handlePhotoUpload} loading={loading} />
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSearch} className="space-y-4 mb-8">
+            {searchType === 'name' ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100 placeholder-zinc-500"
+                  disabled={loading}
+                />
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Last name"
+                  className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100 placeholder-zinc-500"
+                  disabled={loading}
+                />
+                <select
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100"
+                  disabled={loading}
+                >
+                  <option value="">Select state (optional)</option>
+                  {US_STATES.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <input
+                type={searchType === 'email' ? 'email' : 'text'}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={getPlaceholder()}
+                className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg focus:outline-none focus:border-zinc-600 text-zinc-100 placeholder-zinc-500"
+                disabled={loading}
+              />
+            )}
 
-        {/* Results */}
-        {result && (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={deepScan}
+                  onChange={(e) => setDeepScan(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-red-600 focus:ring-red-600"
+                  disabled={loading}
+                />
+                Deep scan (slower, checks more sources)
+              </label>
+
+              <button
+                type="submit"
+                disabled={loading || (searchType === 'name' ? !firstName || !lastName : !query)}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-lg font-medium transition-colors min-w-[120px]"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Searching...
+                  </span>
+                ) : 'Search'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Photo Results */}
+        {searchType === 'photo' && photoResult && (
+          <PhotoResults result={photoResult} />
+        )}
+
+        {/* Regular Results */}
+        {searchType !== 'photo' && result && (
           <div className="space-y-6">
             {result.error ? (
               <div className="bg-red-900/20 border border-red-800 rounded-lg p-6">
@@ -377,6 +652,16 @@ export default function Home() {
                     </div>
                   ) : null}
 
+                  {/* Adult Content Warning */}
+                  {summary?.adult_profiles_found && Number(summary.adult_profiles_found) > 0 ? (
+                    <div className="mt-4 p-4 bg-red-900/30 border border-red-700 rounded-lg">
+                      <p className="font-bold text-red-400 mb-2">⚠️ EMPLOYMENT FLAG: Adult Content Found</p>
+                      <p className="text-sm text-red-300">
+                        Found on {String(summary.adult_profiles_found)} adult platform(s): {(summary.adult_platforms as string[] || []).join(', ')}
+                      </p>
+                    </div>
+                  ) : null}
+
                   {/* Recommendation */}
                   {summary?.recommendation ? (
                     <div className="mt-4 p-4 bg-zinc-800/50 rounded-lg">
@@ -425,7 +710,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-12 pt-8 border-t border-zinc-800 text-center text-zinc-500 text-sm">
-          <p>Powered by LeakCheck, phonenumbers, Sherlock, and more</p>
+          <p>Powered by LeakCheck, DeepFace, phonenumbers, Sherlock, and more</p>
           <p className="mt-1">For authorized security research and personal use only</p>
         </footer>
       </main>
